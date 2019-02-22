@@ -105,7 +105,7 @@ layer_0 = Conv2D(2,2,2)
 # add activation
 layer_1 = MaxPool2D()
 layer_2 = GRU(sgd_batch_size, timesteps, 1078, 100)
-epochs = 40
+epochs = 50
 dataset_size = 8
 i = 0
 order_SGD = np.arange(0, int(dataset_size*seq_number/sgd_batch_size))
@@ -140,12 +140,13 @@ for n_iters in range(epochs):
         yhat = layer_2.forward(X_GRU_flat)    #GRU
         dy = np.zeros((yhat.shape))
         temp = np.zeros((yhat.shape[0]))
-        rep_loss = np.zeros((yhat.shape[0]))
-        Ytrue = Y_new[i*sgd_batch_size:(i+1)*sgd_batch_size].reshape(-1)
-            
+        #rep_loss = np.zeros((yhat.shape[0]))
+        #Ytrue = Y_new[i*sgd_batch_size:(i+1)*sgd_batch_size].reshape(-1)
+        print("temp shape1", temp.shape)    
         temp = (yhat-Y_new[i*sgd_batch_size:(i+1)*sgd_batch_size]).reshape(-1)
+        print("temp shape2", temp.shape)
         dy=temp.reshape(-1,output)
-        
+        print("temp shape3", temp.shape)
         dsGRU, dxGRU = layer_2.backward(dy, X_GRU_flat)
         dyMaxPool = dxGRU.reshape(dxGRU.shape[0], dxGRU.shape[1],11,49,2)
 
