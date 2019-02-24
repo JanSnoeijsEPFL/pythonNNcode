@@ -91,28 +91,36 @@ class GRU():
         for t in reversed(range(X.shape[1])):
             #print(ds.shape, self.z.shape)
             
-            
             ds = dsnext
             dh = ds*(1-self.z[:,t,:])
             dh_l = dh*tanh(self.h[:,t,:], deriv=True)
            
             dWh += np.matmul(np.transpose(X[:,t,:]),dh_l) 
-            dUh += np.matmul(np.transpose(self.r[:,t,:]*self.s[:,t-1,:]),dh_l) 
+            if t != 0:
+                dUh += np.matmul(np.transpose(self.r[:,t,:]*self.s[:,t-1,:]),dh_l)
             dBh += np.sum(dh_l, axis = 0).reshape(1,-1)
-           
-            drsp = np.matmul(dh_l,np.transpose(self.Uh)) 
-            dr = drsp * self.s[:,t-1,:]
-            dr_l = dr * hard_sigmoid(np.matmul(X[:,t,:],self.Wr) + np.matmul(self.s[:,t-1,:],self.Ur) + self.Br, deriv=True) 
             
-            dWr += np.matmul(np.transpose(X[:,t,:]),dr_l) 
-            dUr += np.matmul(np.transpose(self.s[:,t-1,:]),dr_l) 
-            dBr += np.sum(dr_l, axis = 0).reshape(1,-1)
+            drsp = np.matmul(dh_l,np.transpose(self.Uh))
+            if t != 0:
+                dr = drsp * self.s[:,t-1,:]
+                dr_l = dr * hard_sigmoid(np.matmul(X[:,t,:],self.Wr) + np.matmul(self.s[:,t-1,:],self.Ur) + self.Br, deriv=True) 
+                dWr += np.matmul(np.transpose(X[:,t,:]),dr_l) 
+                dUr += np.matmul(np.transpose(self.s[:,t-1,:]),dr_l) 
+                dBr += np.sum(dr_l, axis = 0).reshape(1,-1)
+            else:
+                dr = np.zeros_like(self.s[:,t-1,:])
+                dr_l = np.zeros_like(dr)
             
-            dz = (self.s[:,t-1,:]-self.h[:,t,:]) * ds  
-            dz_l = dz * hard_sigmoid(np.matmul(X[:,t,:],self.Wz) + np.matmul(self.s[:,t-1,:],self.Uz) + self.Bz, deriv=True)
-            
+            if t != 0:
+                dz = (self.s[:,t-1,:]-self.h[:,t,:]) * ds  
+                dz_l = dz * hard_sigmoid(np.matmul(X[:,t,:],self.Wz) + np.matmul(self.s[:,t-1,:],self.Uz) + self.Bz, deriv=True)
+            else:
+                dz = -self.h[:,t,:]*ds
+                dz_l = dz * hard_sigmoid(np.matmul(X[:,t,:],self.Wz) + self.Bz, deriv=True)
+                
             dWz += np.matmul(np.transpose(X[:,t,:]),dz_l)
-            dUz += np.matmul(np.transpose(self.s[:,t-1,:]),dz_l)
+            if t != 0:
+                dUz += np.matmul(np.transpose(self.s[:,t-1,:]),dz_l)
             dBz += np.sum(dz_l, axis = 0).reshape(1,-1)
             
             # calculate gradient w.r.t s[t-1]
@@ -122,8 +130,9 @@ class GRU():
             ds_fr = np.matmul(dr_l,np.transpose(self.Ur))
             
             dsnext = ds_fz_inner + ds_fz + ds_fh + ds_fr
-           
-            dX[:,t,:]=np.matmul(dh_l,np.transpose(self.Wh)) + np.matmul(dr_l,np.transpose(self.Wr)) + np.matmul(dz_l,np.transpose(self.Wz))
+            
+            for n in reversed(range(t)):
+                dX[:,n,:]+=np.matmul(dh_l,np.transpose(self.Wh)) + np.matmul(dr_l,np.transpose(self.Wr)) + np.matmul(dz_l,np.transpose(self.Wz))
             
             #update weights
         self.Wz = self.GRU_updateWz.adam_update(self.Wz, dWz)
@@ -390,7 +399,7 @@ class Optimizer():
         m_corr = self.m/(1-self.beta1)
         v_corr = self.v/(1-self.beta2)
         W = W  - self.alpha*m_corr/(np.sqrt(v_corr)+self.eps)
-        W = pow2_ternarization(W)
+        #W = pow2_ternarization(W)
         return W
 
 #*************************************** Quantization *******************************************************#
