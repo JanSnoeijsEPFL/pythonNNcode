@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 
 # ***************************************#
 
-startfile = 9
-nb_files = 9
-dataset_size = 18
+startfile = 18
+nb_files = 8
+dataset_size = 26
 nbseq = 100
 batch_size = 100
 timesteps = 10
@@ -20,7 +20,7 @@ conv_filters = 2
 conv_height = 2
 conv_width = 2
 inputs = 23
-GRUoutputs = 100
+GRUoutputs = 50
 GRUinputs = int((inputs-1)/2)*int((batch_size-1)/2)*conv_filters
 
 
@@ -58,17 +58,35 @@ def plot_res(y, yhat,nbseq):
 
 
 targets, predictions = [], []
-gt_file = open("../database/chb01-targets.txt", 'r')
-print("reading: ../database/chb01-targets.txt \n")
+if batch_size == 50 and nbseq == 100:
+    gt_file = open("../database/chb01-targets_50batch.txt", 'r')
+    print("reading: ../database/chb01-targets_50batch.txt \n")
+    
+if batch_size == 100 and nbseq == 100:
+    gt_file = open("../database/chb01-targets", 'r')
+    print("reading: ../database/chb01-targets \n")
+    
+if batch_size == 200 and nbseq == 100:
+    gt_file = open("../database/chb01-targets_200batch.txt", 'r')
+    print("reading: ../database/chb01-targets.txt \n")
+
+if batch_size == 400 and nbseq == 50:
+    gt_file = open("../database/chb01-targets_50seq.txt", 'r')
+    print("reading: ../database/chb01-targets_50seq.txt \n")
 for line in gt_file:
     line = re.sub('\n','', line)
     targets.append(line.split(","))
 
 
-for file_iter in range(startfile, nb_files+startfile):
-    print("Reading: ../results_3class/{}_numPy_HS_WQon_ep40.txt \n".format(file_iter+1))
-    with open("../results_3class/{}_numPy_HS_WQon_ep40.txt".format(file_iter+1), 'r') as resfile:
-        for line in resfile:
+#for file_iter in range(startfile, nb_files+startfile):
+    #print("Reading: ../results_3class_kerasTrain/{}_numPy_HS_WQon_ep40.txt \n".format(file_iter+1))
+    #with open("../results_3class_kerasTrain/{}_numPy_HS_WQon_ep40.txt".format(file_iter+1), 'r') as resfile:
+print("Reading: ../results_3class_fullKeras/test_19to26_45ep_noUPSAMPLING.txt")
+with open("../results_3class_fullKeras/test_19to26_45ep_noUPSAMPLING.txt") as resfile:
+    for line in resfile:
+        if line.startswith(' Confusion Matrix'):
+            break
+        else:
             line = re.sub('\n','', line)
             predictions.append(line.split(","))
 

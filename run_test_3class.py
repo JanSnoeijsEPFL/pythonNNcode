@@ -25,7 +25,7 @@ conv_width = 2
 inputs = 23
 GRUoutputs = 100
 GRUinputs = int((inputs-1)/2)*int((batch_size-1)/2)*conv_filters
-
+max_value = 1713.8949938949938 # hardcoded max value for data normalization --> to be written in text file from training phase
 #Defining sizes for input/target data
 X_test=np.zeros((seq_number, timesteps, inputs, batch_size, 1))
 layer_0 = Conv2D(conv_height,conv_width,conv_filters)
@@ -61,7 +61,7 @@ def fill_array(line, array, state):
         
 #load from textfiles
 BoolWconv, BoolBconv,BoolWz, BoolWr, BoolWh, BoolUz, BoolUr, BoolUh, BoolBz, BoolBr, BoolBh, BoolWlin, BoolBlin = False, False, False, False, False, False, False, False, False, False, False, False, False
-with open("all_param_3class.txt") as file_Wall:
+with open("keras_param_3class.txt") as file_Wall:
     for line in file_Wall:
         skip = parse_state(line, "Wconv\n")
         if skip == 1:
@@ -179,7 +179,7 @@ X, input_size, length = get_sizes_test(X, dataset_size, 1, patient) #Defining si
 for file_iter in range(startfile, nb_files+startfile):
     print("Reading files ", startfile+1, " to ", nb_files + startfile, "\n")
     m=file_iter
-    if (m == 3-1 or  m == 4-1 or m == 15-1 or m == 16-1 or m == 18-1 ):
+    if (m == 3-1 or  m == 4-1 or m == 15-1 or m == 16-1 or m == 18-1 or m == 21-1 or m == 26-1):
         if m == 3-1:
             initial_time = 700000
         if m == 4-1:
@@ -190,6 +190,10 @@ for file_iter in range(startfile, nb_files+startfile):
             initial_time = 200000
         if m == 18-1:
             initial_time = 400000
+        if m == 21-1:
+            initial_time = 0
+        if m == 26-1:
+            initial_time = 400000
     else:
         initial_time = 0
     print('initial time:', initial_time)
@@ -199,10 +203,9 @@ for file_iter in range(startfile, nb_files+startfile):
             final = initial_time+(i*batch_size*timesteps)+((j+1)*batch_size)
             #print(initial_time+(i*batch_size_new*timesteps)+j*batch_size_new)
             #print(initial_time+(i*batch_size_new*timesteps)+((j+1)*batch_size_new))
-            X_test[i,j,:,0:batch_size,0] =  X[m,0,0,0:inputs,initial:final,0]    
+            X_test[(m-startfile)*seq_number+i,j,:,0:batch_size,0] =  X[m,0,0,0:inputs,initial:final,0]    
     print("Normalizing data ... ")  
-    max_value_2 = np.amax(abs(X_test))
-    X_test = X_test/max_value_2
+    X_test = X_test/max_value
     print("Generating predictions ...")
     HConv = layer_0.forward(X_test) # 5D data for train_data, 3D for Wconv 2D for Bconv
     YConv = reLU(HConv, deriv=False) # no requirement on shape
@@ -214,7 +217,7 @@ for file_iter in range(startfile, nb_files+startfile):
     #print(X_GRU_flat.shape)
     #GRU
     yhat_test = layer_2.forward(X_GRU_flat) # timesteps
-    file2 = open("../results_3class/{}_numPy_HS_WQon_ep40.txt".format(file_iter+1), 'w')
+    file2 = open("../results_3class_kerasTrain/{}_numPy_HS_WQon_ep40.txt".format(file_iter+1), 'w')
     np.savetxt(file2, yhat_test, delimiter="," )
     file2.close()
 
