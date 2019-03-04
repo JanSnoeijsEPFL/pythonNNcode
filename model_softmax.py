@@ -213,6 +213,11 @@ class Conv2D():
             for i in range(self.new_height):
                 for j in range(self.new_width):
                     h[:,:,i,j,k]=np.sum(X[:,:,i:i+self.M, j:j+self.N,0]*self.W[:,:,k], axis =(2,3))+self.B[0,k]
+        file_verify_conv = open("verify_conv2D_custom.txt", 'w')
+        np.savetxt(file_verify_conv, self.W.reshape(4,2))
+        np.savetxt(file_verify_conv, self.B)
+        np.savetxt(file_verify_conv, h.reshape(-1,))
+        file_verify_conv.close()
         return h
     # dH has dimensions of H which means in case of X.shape=[3,3,1], W.shape=[2,2,1] => H.shape=[2,2,1]
     # dX should have the same shape as X, i.e dX.shape=[3,3,1] = dH conv2D flipped W 'FULL'

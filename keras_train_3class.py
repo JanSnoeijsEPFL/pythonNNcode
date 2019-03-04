@@ -377,9 +377,6 @@ fileTarget = open("../database/chb01-targets", 'r')
 YtestTrue  = np.loadtxt(fileTarget, delimiter = ",")
 fileTarget.close()
 YtestTrue = YtestTrue[startfile*seq_number:(startfile+nb_files)*seq_number,:]
-file_testTrue = open("../results_3class_fullKeras/testTrue.txt", 'w')
-np.savetxt(file_testTrue, YtestTrue, delimiter = ",")
-file_testTrue.close()
 goodPreIctal = 0
 goodIctal = 0
 goodHealthy = 0
