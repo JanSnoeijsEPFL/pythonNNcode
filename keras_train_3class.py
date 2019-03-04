@@ -162,8 +162,8 @@ minn, maxx = get_minmax(X_new)
 X_new = normalization(X_new, minn, maxx)
 Y_1D = np.argmax(Y_new, axis = 1)
 
-CVSF = open("../results_3class_fullKeras/cross_val_res_45e_noUPSAMPLING.txt", 'w')
-CVSF.write("Cross validation results 45 epochs + noUPSAMPLING\n")
+CVSF = open("../results_3class_fullKeras/cross_val_res_30e_noUPSAMPLING.txt", 'w')
+CVSF.write("Cross validation results 30 epochs + noUPSAMPLING\n")
 
 for index, (train_indices, val_indices) in enumerate(skf.split(X_new, Y_1D)):
     Y_new = keras.utils.to_categorical(Y_1D, num_classes = 3)
@@ -213,7 +213,7 @@ for index, (train_indices, val_indices) in enumerate(skf.split(X_new, Y_1D)):
     print(model.summary())
 
 
-    model.fit(X_resampled, Y_resampled, epochs =45, shuffle = True)
+    model.fit(X_resampled, Y_resampled, epochs =30, shuffle = True)
     Y_cross_val = model.predict(xval)
     
     Y_stat = np.argmax(Y_cross_val, axis = 1)
@@ -370,17 +370,20 @@ X_test = normalization(X_test, minn, maxx)
     #np.savetxt(fileII, X_test[:,:, 0,:,0].reshape(800,-1), delimiter="," )
 print("Predicting ... {}".format(file_iter+1))
 yhat = model.predict(X_test, verbose=0)
-file2 = open("../results_3class_fullKeras/test_19to26_45ep_noUPSAMPLING.txt", 'w')
+file2 = open("../results_3class_fullKeras/test_19to26_30ep_noUPSAMPLING.txt", 'w')
 np.savetxt(file2, yhat, delimiter="," )
 file2.close()
 fileTarget = open("../database/chb01-targets", 'r')
 YtestTrue  = np.loadtxt(fileTarget, delimiter = ",")
 fileTarget.close()
 YtestTrue = YtestTrue[startfile*seq_number:(startfile+nb_files)*seq_number,:]
+file_testTrue = open("../results_3class_fullKeras/testTrue.txt", 'w')
+np.savetxt(file_testTrue, YtestTrue, delimiter = ",")
+file_testTrue.close()
 goodPreIctal = 0
 goodIctal = 0
 goodHealthy = 0
-countPreIctal =0
+countPreIctal = 0
 countIctal = 0
 countHealthy = 0
 IctalAsPreIctal = 0
@@ -389,22 +392,24 @@ PreIctalAsHealthy = 0
 PreIctalAsIctal = 0
 HealthyAsPreIctal = 0
 HealthyAsIctal = 0
+Y_stat = np.argmax(yhat, axis = 1)
+yhat = keras.utils.to_categorical(Y_stat, 3)
 for k in range(YtestTrue.shape[0]):
     if YtestTrue[k, 0] == 1:
-        countPreIctal +=1
+        countPreIctal += 1
         if yhat[k, 0] == 1:
-            goodPreIctal +=1
+            goodPreIctal += 1 
         elif yhat[k,1] == 1:
-            PreIctalAsIctal +=1
+            PreIctalAsIctal += 1
         else:
-            PreIctalAsHealthy +=1
+            PreIctalAsHealthy += 1
 
     elif YtestTrue[k, 1] ==  1:
-        countIctal +=1
+        countIctal += 1
         if yhat[k,1] == 1:
-            goodIctal +=1
+            goodIctal += 1
         elif yhat[k,0] == 1:
-            IctalAsPreIctal +=1
+            IctalAsPreIctal += 1
         else:
             IctalAsHealthy +=1
 
@@ -417,7 +422,7 @@ for k in range(YtestTrue.shape[0]):
         else:
             HealthyAsIctal +=1
 
-TestSF = open("../results_3class_fullKeras/test_19to26_45ep_noUPSAMPLING.txt", 'a')
+TestSF = open("../results_3class_fullKeras/test_19to26_30ep_noUPSAMPLING.txt", 'a')
 TestSF.write(" Confusion Matrix\n")
 TestSF.write("             | Inter-Ictal | Pre-Ictal | Ictal\n")
 TestSF.write("----------------------------------------------\n")
@@ -439,7 +444,7 @@ TestSF.close()
   #  np.savetxt(file2, yhat, delimiter="," )
   #  file2.close()
 
-file_Wall = open("keras_param_3class_45e.txt", 'w')
+file_Wall = open("keras_param_3class_30e.txt", 'w')
 file_Wall.write("Wconv\n")
 save_param(file_Wall, Wconv_flat)
 file_Wall.write("Bconv\n")
