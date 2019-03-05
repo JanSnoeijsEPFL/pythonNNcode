@@ -31,7 +31,8 @@ max_value = 1713.8949938949938 # hardcoded max value for data normalization --> 
 X_test=np.zeros((seq_number*nb_files, timesteps, inputs, batch_size, 1))
 layer_0 = model_softmax.Conv2D(conv_height,conv_width,conv_filters)
 # add activation
-layer_1 = model_softmax.MaxPool2D()
+#layer_1 = model_softmax.MaxPool2D()
+layer_1 = model_softmax.fast_MaxPool2D()
 layer_2 = model_softmax.GRU(seq_number*nb_files, timesteps, GRUinputs, GRUoutputs)
 
 #init empty arrays (hardcoded for now)
@@ -169,20 +170,23 @@ Br = np.asarray(Br, dtype = np.float64)
 Bh = np.asarray(Bh, dtype = np.float64)
 Wlin = np.asarray(Wlin, dtype = np.float64)
 Blin = np.asarray(Blin, dtype = np.float64)
+
 Wconv = Wconv_flat.reshape(2,2,2)
 Bconv = Bconv.reshape(1,conv_filters)
+layer_0.set_param((Wconv.swapaxes(0,1)).swapaxes(1,2), Bconv)
+layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin)
+
 Bz = Bz.reshape(1,-1)
 Br = Br.reshape(1,-1)
 Bh = Bh.reshape(1,-1)
 Blin = Blin.reshape(1,-1)
-layer_0.set_param(Wconv, Bconv)
-layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin)
+
 X, Y = list(), list()
 patient = 1
 X, input_size, length = get_sizes_test(X, dataset_size, 1, patient) #Defining sizes for input/target data
 
 
-for file_iter in range(startfile, nb_files+startfile):
+for file_iter in range(startfile, 1+startfile):
     print("Reading files ", startfile+1, " to ", nb_files + startfile, "\n")
     m=file_iter
     if (m == 3-1 or  m == 4-1 or m == 15-1 or m == 16-1 or m == 18-1 or m == 21-1 or m == 26-1):
@@ -217,24 +221,44 @@ print("Generating predictions ...")
 model = keras.models.Sequential()
 model.add(keras.layers.TimeDistributed(keras.layers.Conv2D(2,(2,2), activation = 'relu'), input_shape = (None,electrodes,batch_size,1)))
 model.layers[0].set_weights((Wconv.reshape(2,2,1,2),Bconv.reshape(2,)))
+model.add(keras.layers.TimeDistributed(keras.layers.MaxPooling2D(pool_size =(2,2))))
+model.add(keras.layers.TimeDistributed(keras.layers.Flatten()))
+yhat_flat = model.predict(X_test)
 
 
+model1 = keras.models.Sequential()
+model1.add(keras.layers.TimeDistributed(keras.layers.Conv2D(2,(2,2), activation = 'relu'), input_shape = (None,electrodes,batch_size,1)))
+model1.layers[0].set_weights((Wconv.reshape(2,2,1,2),Bconv.reshape(2,)))
+model1.add(keras.layers.TimeDistributed(keras.layers.MaxPooling2D(pool_size =(2,2))))
+model1.add(keras.layers.TimeDistributed(keras.layers.Flatten()))
+model1.add(keras.layers.GRU(100))
+model1.layers[3].set_weights((np.concatenate((Wz, Wr, Wh), axis = 1), np.concatenate((Uz, Ur, Uh), axis = 1), np.concatenate((Bz.reshape(100,), Br.reshape(100,), Bh.reshape(100,)), axis = 0)))
+model1.add(keras.layers.Dense(3, activation = 'softmax'))
+model1.layers[4].set_weights((Wlin, Blin.reshape(3,)))
+yhat_keras = model1.predict(X_test)
 
-Keras_YConv = model.predict(X_test)
+
 HConv = layer_0.forward(X_test) # 5D data for train_data, 3D for Wconv 2D for Bconv
 YConv = model_softmax.reLU(HConv, deriv=False)
 
-Conv_diff = np.sum(abs(YConv - Keras_YConv))
-print(Conv_diff)
+#custom_Conv = model2.predict(Keras_YConv)
+
 # no requirement on shape
 #pooling layer
 pool_kernel = np.array([2,2])
 YPool, XArgmax = layer_1.forward(YConv,  pool_kernel) #5D data for YConv
 #flattening
+
 X_GRU_flat = YPool.reshape(YPool.shape[0],10,-1) # check size here should be 3D (100*nb_files, 10, 1078)
 #print(X_GRU_flat.shape)
 #GRU
 yhat_test = layer_2.forward(X_GRU_flat) # timesteps
+print("total diff post GRU", np.sum(abs(yhat_test-yhat_keras)))
+print("max diff post GRU", np.max(abs(yhat_test - yhat_keras)))
+print("diff after Flattening: ", np.sum(abs(X_GRU_flat- yhat_flat)))
+#for i in range(timesteps):
+ #   print("diff GRU in iteration {}: ".format(i), np.sum(abs(yhat_test[:,i,:]- yhat_keras[:,i,:])))
+print("shapes", yhat_test.shape, yhat_keras.shape)
 file2 = open("../results_3class_fullKeras/test_customFP_kerasTrain_30e.txt", 'w')
 np.savetxt(file2, yhat_test, delimiter="," )
 file2.close()
@@ -258,19 +282,19 @@ PreIctalAsIctal = 0
 HealthyAsPreIctal = 0
 HealthyAsIctal = 0
 Y_stat = np.argmax(yhat_test, axis = 1)
-yhat_test[Y_stat == 0,0] = 1
-yhat_test[Y_stat == 0,1] = 0
-yhat_test[Y_stat == 0,1] = 0
+yhat_test = keras.utils.to_categorical(Y_stat, 3)
+#yhat_test[Y_stat == 0,0] = 1
+#yhat_test[Y_stat == 0,1] = 0
+#yhat_test[Y_stat == 0,1] = 0
 
-yhat_test[Y_stat == 1,1] = 1
-yhat_test[Y_stat == 1,0] = 0
-yhat_test[Y_stat == 1,2] = 0
+#yhat_test[Y_stat == 1,1] = 1
+#yhat_test[Y_stat == 1,0] = 0
+#yhat_test[Y_stat == 1,2] = 0
 
-yhat_test[Y_stat == 2,2] = 1
-yhat_test[Y_stat == 2,0] = 0
-yhat_test[Y_stat == 2,1] = 0
+#yhat_test[Y_stat == 2,2] = 1
+#yhat_test[Y_stat == 2,0] = 0
+#yhat_test[Y_stat == 2,1] = 0
 
-#yhat_test = keras.utils.to_categorical(Y_stat, 3)
 for k in range(YtestTrue.shape[0]):
     if YtestTrue[k, 0] == 1:
         countPreIctal += 1
@@ -314,4 +338,113 @@ TestSF.write("Correctly classified pre-ictals  : {}/{} = {}%\n".format(goodPreIc
 TestSF.write("Correctly classified ictals      : {}/{} = {}%\n".format(goodIctal, countIctal, goodIctal/countIctal*100))
 TestSF.write("\n")
 TestSF.write(" \n")
+
+goodPreIctal = 0
+goodIctal = 0
+goodHealthy = 0
+countPreIctal = 0
+countIctal = 0
+countHealthy = 0
+IctalAsPreIctal = 0
+IctalAsHealthy = 0
+PreIctalAsHealthy = 0
+PreIctalAsIctal = 0
+HealthyAsPreIctal = 0
+HealthyAsIctal = 0
+Y_stat = np.argmax(yhat_keras, axis = 1)
+yhat_keras = keras.utils.to_categorical(Y_stat, 3)
+print("custom - keras err: ", np.sum(abs(yhat_test - yhat_keras)))
+for k in range(YtestTrue.shape[0]):
+    if YtestTrue[k, 0] == 1:
+        countPreIctal += 1
+        if yhat_keras[k, 0] == 1:
+            goodPreIctal += 1 
+        elif yhat_keras[k,1] == 1:
+            PreIctalAsIctal += 1
+        else:
+            PreIctalAsHealthy += 1
+
+    elif YtestTrue[k, 1] ==  1:
+        countIctal += 1
+        if yhat_keras[k,1] == 1:
+            goodIctal += 1
+        elif yhat_keras[k,0] == 1:
+            IctalAsPreIctal += 1
+        else:
+            IctalAsHealthy +=1
+
+    elif YtestTrue[k, 2] ==  1:
+        countHealthy +=1
+        if yhat_keras[k,2] == 1:
+            goodHealthy +=1
+        elif yhat_keras[k,0] == 1:
+            HealthyAsPreIctal +=1
+        else:
+            HealthyAsIctal +=1
+            
+            
+TestSF.write(" Confusion Matrix\n")
+TestSF.write("             | Inter-Ictal | Pre-Ictal | Ictal\n")
+TestSF.write("----------------------------------------------\n")
+TestSF.write(" Inter-Ictal |     {}      |    {}     |  {}  \n".format(goodHealthy, PreIctalAsHealthy, IctalAsHealthy))
+TestSF.write("----------------------------------------------\n") 
+TestSF.write(" Pre-Ictal   |     {}      |    {}     |  {}  \n".format(HealthyAsPreIctal, goodPreIctal, IctalAsPreIctal))
+TestSF.write("----------------------------------------------\n") 
+TestSF.write(" Ictal       |     {}      |    {}     |  {}  \n".format(HealthyAsIctal, PreIctalAsHealthy, goodIctal))
+TestSF.write("\n")
+TestSF.write("Correctly classified inter-ictals: {}/{} = {}%\n".format(goodHealthy, countHealthy, goodHealthy/countHealthy*100))
+TestSF.write("Correctly classified pre-ictals  : {}/{} = {}%\n".format(goodPreIctal, countPreIctal, goodPreIctal/countPreIctal*100))
+TestSF.write("Correctly classified ictals      : {}/{} = {}%\n".format(goodIctal, countIctal, goodIctal/countIctal*100))
+TestSF.write("\n")
+TestSF.write(" \n")
+
+
+
+
+##################
+Wconv_trained = (model1.layers[0].get_weights()[0]).reshape(2,2,2)
+Wconv_flat = Wconv_trained.reshape(4,2)
+Bconv_trained = (model1.layers[0].get_weights()[1]).reshape(1,2)
+
+WGRU = np.asarray(model1.layers[3].get_weights()[0])
+UGRU = np.asarray(model1.layers[3].get_weights()[1])
+BGRU = np.asarray(model1.layers[3].get_weights()[2]).reshape(1, -1)
+
+Wlin_trained = np.asarray(model1.layers[4].get_weights()[0])
+Blin_trained = np.asarray(model1.layers[4].get_weights()[1]).reshape(1,-1)
+
+def save_param(filename, array):
+    np.savetxt(filename, array, delimiter=",")
+    return
+
+Wz_trained, Wr_trained, Wh_trained = WGRU[:,0:100], WGRU[:,100:200], WGRU[:,200:300]
+Uz_trained, Ur_trained, Uh_trained = UGRU[:,0:100], UGRU[:,100:200], UGRU[:,200:300]
+Bz_trained, Br_trained, Bh_trained = BGRU[:,0:100], BGRU[:,100:200], BGRU[:,200:300]
+TestSF.write("Wconv\n")
+save_param(TestSF, Wconv_flat)
+TestSF.write("Bconv\n")
+save_param(TestSF, Bconv_trained)
+TestSF.write("Wz\n")
+save_param(TestSF, Wz_trained)
+TestSF.write("Wr\n")
+save_param(TestSF, Wr_trained)
+TestSF.write("Wh\n")
+save_param(TestSF, Wh_trained)
+TestSF.write("Uz\n")
+save_param(TestSF, Uz_trained)
+TestSF.write("Ur\n")
+save_param(TestSF, Ur_trained)
+TestSF.write("Uh\n")
+save_param(TestSF, Uh_trained)
+TestSF.write("Bz\n")
+save_param(TestSF, Bz_trained)
+TestSF.write("Br\n")
+save_param(TestSF, Br_trained)
+TestSF.write("Bh\n")
+save_param(TestSF, Bh_trained)
+TestSF.write("Wlin\n")
+save_param(TestSF, Wlin_trained)
+TestSF.write("Blin\n")
+save_param(TestSF, Blin_trained)
+
 TestSF.close()

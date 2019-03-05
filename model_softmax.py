@@ -37,13 +37,13 @@ class GRU():
         self.Wlin = np.random.uniform(-lim_wlin, lim_wlin, (outputs, 3))
         self.Blin = np.zeros((1,3))
         print(self.Wz.shape)
-        self.y, self.dy = np.zeros((sequences, 3), dtype = np.float16) ,np.zeros((sequences,3))
+        self.y, self.dy = np.zeros((sequences, 3), dtype = np.float64) ,np.zeros((sequences,3))
         #self.Uz, self.Ur, self.Uh = np.random.uniform(-lim_u,lim_u,(outputs, outputs)), np.random.uniform(-lim_u,lim_u,(outputs, outputs)), np.random.uniform(-lim_u,lim_u,(outputs, outputs))
         self.Uz = orthogonal_initializer((outputs, outputs), lim_u)
         self.Ur = orthogonal_initializer((outputs, outputs), lim_u)
         self.Uh = orthogonal_initializer((outputs, outputs), lim_u)
-        self.z, self.r = np.zeros((sequences,timesteps,outputs), dtype =np.float16),np.zeros((sequences,timesteps,outputs), dtype=np.float16)
-        self.h, self.s = np.zeros((sequences,timesteps,outputs),dtype =np.float16),np.zeros((sequences,timesteps,outputs), dtype = np.float16)
+        self.z, self.r = np.zeros((sequences,timesteps,outputs), dtype =np.float64),np.zeros((sequences,timesteps,outputs), dtype=np.float64)
+        self.h, self.s = np.zeros((sequences,timesteps,outputs),dtype =np.float64),np.zeros((sequences,timesteps,outputs), dtype = np.float64)
         print(self.s.shape)
         self.dWlin = np.zeros((outputs,1))
         self.GRU_updateBz = Optimizer(self.Bz)
@@ -241,7 +241,59 @@ class Conv2D():
         self.W = W
         self.B = B
         return
- #
+class fast_conv2D:
+    height = 0
+    width = 0
+    nb_seq = 0
+    timesteps = 0
+    new_height = 0
+    new_width = 0
+    K = 0
+    M = 0
+    N = 0
+    def __init__(self, kernel_height, kernel_width, filters):
+        self.W = np.random.uniform(-1,1,(kernel_height, kernel_width, filters))
+        self.B = np.zeros((1, filters))
+        self.dW = np.zeros((kernel_height, kernel_width, filters))
+        self.dB = np.zeros((1, filters))
+        print('Creating Conv2D layer')
+        self.Conv2D_updateW = Optimizer(self.W)
+        self.Conv2D_updateB = Optimizer(self.B)
+    # W.shape : [kernel_height, kernel_width, nb_filters]
+    # X.shape : [samples, timesteps, height, width, 1]
+    # B.shape : [1, nb_filters]
+    def forward(self, X):
+        #print("conv2d Xshape", X.shape)
+        self.height = X.shape[2]
+        self.width = X.shape[3]
+        self.M = self.W.shape[0]
+        self.N = self.W.shape[1]
+        self.K = self.W.shape[2]
+        self.nb_seq = X.shape[0]
+        self.timesteps = X.shape[1]
+        #print(self.timesteps)
+        #compute new dimensions
+        self.new_height = self.height - self.M + 1
+        self.new_width = self.width - self.N + 1
+        
+       # print(new_height, new_width)
+       # h = np.zeros((self.nb_seq, self.timesteps, self.new_height, self.new_width, self.K))
+        #for k in range(self.K):
+       #     for i in range(self.new_height):
+        #        for j in range(self.new_width):
+        #            h[:,:,i,j,k]=np.sum(X[:,:,i:i+self.M, j:j+self.N,0]*self.W[:,:,k], axis =(2,3))+self.B[0,k]
+        x_reshaped=X[:,:,:self.new_height*self.M, :self.new_width*self.N,:].reshape(self.nb_seq, self.nb_timesteps, self.new_height, self.M, self.new_width, self.N, -1)
+        
+        x_reshaped=x_reshaped.reshape(self.nb_seq, self.nb_timesteps, self.new_height, self.new_width, -1,self.N*self.M)
+        
+        W = self.W.swapaxes(0,2)
+        W = W.reshape(self.K, -1)
+        file_verify_conv = open("verify_conv2D_custom.txt", 'w')
+        np.savetxt(file_verify_conv, self.W.reshape(4,2))
+        np.savetxt(file_verify_conv, self.B)
+        np.savetxt(file_verify_conv, h.reshape(-1,))
+        file_verify_conv.close()
+        return h
 #*************************************** MAX POOL 2D *******************************************************#
 
 class MaxPool2D():
@@ -263,33 +315,16 @@ class MaxPool2D():
         self.K = X.shape[4]
         self.nb_seq = X.shape[0]
         self.nb_timesteps = X.shape[1]
-        if self.height%2 == 1:
-            X = np.delete(X, obj=self.height-1, axis=2)
-            self.height = X.shape[2]
-        if self.width%2 == 1:
-            X = np.delete(X, obj=self.width-1, axis=3)
-            self.width = X.shape[3]
-        X_argmax = np.copy(X)
-       
-        #print(self.M, self.N)
-        #compute new sizes
-        new_height = int(self.height/self.M)
-        new_width = int(self.width/self.N)
-        H = np.zeros((self.nb_seq, self.nb_timesteps, new_height, new_width, self.K),dtype =np.float16)
-        #print(H.shape)
-       
-        #start pooling
-        for k in range(self.K):
-            for i in range(0,self.height,self.M):
-                for j in range(0,self.width,self.N): #genericity loss here, only valid with kernel width = 2.
-                    X_temp = X[:,:,i:i+self.M, j:j+self.N, k].reshape(self.nb_seq, self.nb_timesteps, self.M*self.N,1)
-                    H[:,:,int(i/self.M), int(j/self.N), k] = np.amax(X[:,:,i:i+self.M, j:j+self.N, k], axis=(2,3)) 
-                    X_argmax[:,:, i, j, k] = (np.argmax(X_temp, axis = 2)).reshape(self.nb_seq, self.nb_timesteps) 
-                    X_argmax[:,:, i+self.M-1, j, k] = (np.argmax(X_temp, axis = 2)).reshape(self.nb_seq, self.nb_timesteps) 
-                    X_argmax[:,:, i, j+self.N-1, k] = (np.argmax(X_temp, axis = 2)).reshape(self.nb_seq, self.nb_timesteps) 
-                    X_argmax[:,:, i+self.M-1, j+self.N-1, k] = (np.argmax(X_temp, axis = 2)).reshape(self.nb_seq, self.nb_timesteps) 
-        return H, X_argmax
-        
+        #X_argmax = np.copy(X)
+
+        new_height = self.height//self.M
+        new_width = self.width//self.N
+
+        H =X[:,:,:new_height*self.M, :new_width*self.N,:].reshape(self.nb_seq, self.nb_timesteps, new_height, self.M, new_width, self.N, -1).max(axis=(3, 5))
+
+        return H, X
+
+
     def backward(self, X_argmax, dH):
         dX = np.zeros((X_argmax.shape),dtype =np.float16)
         for k in range(self.K):
@@ -329,13 +364,44 @@ class MaxPool2D():
         return deriv
 
     #
+    
+#-----------------------------------
+class fast_MaxPool2D():
+    height = 0
+    width = 0
+    M = 0
+    N = 0
+    K = 0
+    nb_seq = 0
+    timesteps = 0
+    def __init__(self):
+        print('creating 2D Max pooling layer')
+    
+    def forward(self, X, pool):
+        self.height = X.shape[2]
+        self.width = X.shape[3]
+        self.M = pool[0]
+        self.N = pool[1]
+        self.K = X.shape[4]
+        self.nb_seq = X.shape[0]
+        self.nb_timesteps = X.shape[1]
+        #if self.height%2 == 1:
+        #    X = np.delete(X, obj=self.height-1, axis=2)
+        #    self.height = X.shape[2]
+        if self.width%2 == 1:
+            X = np.delete(X, obj=self.width-1, axis=3)
+            self.width = X.shape[3]
+        X_argmax = np.copy(X)
+      
+        new_height = int(self.height/self.M)
+        new_width = int(self.width/self.N)
+      
+        H =X[:,:,:new_height*self.M, :new_width*self.N,:].reshape(self.nb_seq, self.nb_timesteps, new_height, self.M, new_width, self.N, -1).max(axis=(3, 5))
+        
+        return H, X_argmax
+    
 #********************************************* ACTIVATIONS ****************************************************#
 
-def sigmoid(input, deriv=False): #requires output of forward prop for derivativef
-    if deriv:
-        return input*(1-input)
-    else:
-        return 1 / (1 + np.exp(-input))
 
 def hard_sigmoid(input, deriv = False): #requires input of forward prop for derivative.
     if deriv:

@@ -8,7 +8,7 @@ from target_data_gen_100seq_GENERAL import get_sizes_test
 from target_data_gen_100seq_GENERAL import target_gen
 
 import model_softmax
-from model_softmax import GRU, Conv2D, MaxPool2D, sigmoid, reLU, tanh, CrossEntropy, Optimizer, orthogonal_initializer
+from model_softmax import GRU, Conv2D, MaxPool2D, reLU, tanh, CrossEntropy, Optimizer, orthogonal_initializer
 
 # ***************************************#
 
