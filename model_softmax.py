@@ -216,7 +216,7 @@ class Conv2D():
         file_verify_conv = open("verify_conv2D_custom.txt", 'w')
         np.savetxt(file_verify_conv, self.W.reshape(4,2))
         np.savetxt(file_verify_conv, self.B)
-        np.savetxt(file_verify_conv, h.reshape(-1,))
+       # np.savetxt(file_verify_conv, h.reshape(-1,))
         file_verify_conv.close()
         return h
     # dH has dimensions of H which means in case of X.shape=[3,3,1], W.shape=[2,2,1] => H.shape=[2,2,1]

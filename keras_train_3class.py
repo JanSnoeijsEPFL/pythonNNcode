@@ -152,7 +152,7 @@ for i in range(9):
 #X_new = np.concatenate((X_new, X_pos, X_pos, X_pos, X_ict), axis = 0)
 #Y_new = np.concatenate((Y_new, Y_pos, Y_pos, Y_pos, Y_ict), axis = 0)
 
-kfold_splits = 5
+kfold_splits = 2
 # Instantiate the cross validator
 skf = StratifiedKFold(n_splits=kfold_splits, shuffle=True)
 print("Ynew shape", Y_new.shape)
@@ -203,8 +203,8 @@ for index, (train_indices, val_indices) in enumerate(skf.split(X_new, Y_1D)):
     #model.add(TimeDistributed(MaxPooling2D(pool_size=(2, 2))))
     model.add(TimeDistributed(Flatten()))
 
-    model.add(GRU(100, recurrent_dropout = 0.5))
-    model.add(Dropout(0.5))
+    model.add(GRU(100))
+    #model.add(Dropout(0.5))
   
     model.add(Dense(output, activation  = 'softmax'))
 
@@ -293,21 +293,22 @@ for index, (train_indices, val_indices) in enumerate(skf.split(X_new, Y_1D)):
 
 CVSF.close()
     
-Wconv_trained = (model.layers[0].get_weights()[0]).reshape(2,2,2)
+Wconv_trained = (model.layers[0].get_weights()[0])
 Wconv_flat = Wconv_trained.reshape(4,2)
-Bconv_trained = (model.layers[0].get_weights()[1]).reshape(1,2)
+Bconv_trained = (model.layers[0].get_weights()[1])
 
 WGRU = np.asarray(model.layers[3].get_weights()[0])
 UGRU = np.asarray(model.layers[3].get_weights()[1])
-BGRU = np.asarray(model.layers[3].get_weights()[2]).reshape(1, -1)
+BGRU = np.asarray(model.layers[3].get_weights()[2])
+#BGRU = np.asarray(model.layers[3].get_weights()[2]).reshape(1, -1)
 
 Wlin_trained = np.asarray(model.layers[5].get_weights()[0])
-Blin_trained = np.asarray(model.layers[5].get_weights()[1]).reshape(1,-1)
+Blin_trained = np.asarray(model.layers[5].get_weights()[1])
 
 
 Wz_trained, Wr_trained, Wh_trained = WGRU[:,0:100], WGRU[:,100:200], WGRU[:,200:300]
 Uz_trained, Ur_trained, Uh_trained = UGRU[:,0:100], UGRU[:,100:200], UGRU[:,200:300]
-Bz_trained, Br_trained, Bh_trained = BGRU[:,0:100], BGRU[:,100:200], BGRU[:,200:300]
+Bz_trained, Br_trained, Bh_trained = BGRU[0:100], BGRU[100:200], BGRU[200:300]
 
 
 #print("WGRU",Wz_trained.shape)
@@ -365,6 +366,7 @@ for file_iter in range(startfile, nb_files+startfile):
 print("Normalizing data ... ")
 #minn, maxx = get_minmax(X_test)
 X_test = normalization(X_test, minn, maxx)
+print("maxx", maxx)
     #X_test = standardization(X_test)
     #fileII = open("../database/chb01_normDataTest.txt", 'w')
     #np.savetxt(fileII, X_test[:,:, 0,:,0].reshape(800,-1), delimiter="," )

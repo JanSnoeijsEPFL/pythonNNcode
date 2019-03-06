@@ -26,7 +26,7 @@ GRUoutputs = 100
 electrodes = 23
 
 GRUinputs = int((inputs-1)/2)*int((batch_size-1)/2)*conv_filters
-max_value = 1713.8949938949938 # hardcoded max value for data normalization --> to be written in text file from training phase
+max_value = 1061.00122101221 # hardcoded max value for data normalization --> to be written in text file from training phase
 #Defining sizes for input/target data
 X_test=np.zeros((seq_number*nb_files, timesteps, inputs, batch_size, 1))
 layer_0 = model_softmax.Conv2D(conv_height,conv_width,conv_filters)
@@ -173,7 +173,7 @@ Blin = np.asarray(Blin, dtype = np.float64)
 
 Wconv = Wconv_flat.reshape(2,2,2)
 Bconv = Bconv.reshape(1,conv_filters)
-layer_0.set_param((Wconv.swapaxes(0,1)).swapaxes(1,2), Bconv)
+layer_0.set_param(Wconv, Bconv)
 layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin)
 
 Bz = Bz.reshape(1,-1)
@@ -218,14 +218,6 @@ for file_iter in range(startfile, 1+startfile):
 X_test = X_test/max_value
 print("Generating predictions ...")
 
-model = keras.models.Sequential()
-model.add(keras.layers.TimeDistributed(keras.layers.Conv2D(2,(2,2), activation = 'relu'), input_shape = (None,electrodes,batch_size,1)))
-model.layers[0].set_weights((Wconv.reshape(2,2,1,2),Bconv.reshape(2,)))
-model.add(keras.layers.TimeDistributed(keras.layers.MaxPooling2D(pool_size =(2,2))))
-model.add(keras.layers.TimeDistributed(keras.layers.Flatten()))
-yhat_flat = model.predict(X_test)
-
-
 model1 = keras.models.Sequential()
 model1.add(keras.layers.TimeDistributed(keras.layers.Conv2D(2,(2,2), activation = 'relu'), input_shape = (None,electrodes,batch_size,1)))
 model1.layers[0].set_weights((Wconv.reshape(2,2,1,2),Bconv.reshape(2,)))
@@ -255,7 +247,6 @@ X_GRU_flat = YPool.reshape(YPool.shape[0],10,-1) # check size here should be 3D 
 yhat_test = layer_2.forward(X_GRU_flat) # timesteps
 print("total diff post GRU", np.sum(abs(yhat_test-yhat_keras)))
 print("max diff post GRU", np.max(abs(yhat_test - yhat_keras)))
-print("diff after Flattening: ", np.sum(abs(X_GRU_flat- yhat_flat)))
 #for i in range(timesteps):
  #   print("diff GRU in iteration {}: ".format(i), np.sum(abs(yhat_test[:,i,:]- yhat_keras[:,i,:])))
 print("shapes", yhat_test.shape, yhat_keras.shape)
@@ -283,17 +274,7 @@ HealthyAsPreIctal = 0
 HealthyAsIctal = 0
 Y_stat = np.argmax(yhat_test, axis = 1)
 yhat_test = keras.utils.to_categorical(Y_stat, 3)
-#yhat_test[Y_stat == 0,0] = 1
-#yhat_test[Y_stat == 0,1] = 0
-#yhat_test[Y_stat == 0,1] = 0
 
-#yhat_test[Y_stat == 1,1] = 1
-#yhat_test[Y_stat == 1,0] = 0
-#yhat_test[Y_stat == 1,2] = 0
-
-#yhat_test[Y_stat == 2,2] = 1
-#yhat_test[Y_stat == 2,0] = 0
-#yhat_test[Y_stat == 2,1] = 0
 
 for k in range(YtestTrue.shape[0]):
     if YtestTrue[k, 0] == 1:
