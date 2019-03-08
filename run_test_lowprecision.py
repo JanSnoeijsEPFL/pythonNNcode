@@ -3,12 +3,11 @@
 import numpy as np
 import re
 from random import randint
-import target_data_gen_100seq_GENERAL
-from target_data_gen_100seq_GENERAL import get_sizes_test
-from target_data_gen_100seq_GENERAL import target_gen
 
-import model_softmax
-from model_softmax import GRU, Conv2D, MaxPool2D, reLU, tanh, CrossEntropy, Optimizer, orthogonal_initializer
+from rig.type_casts import \
+        NumpyFloatToFixConverter, NumpyFixToFloatConverter
+import model_fixedpoint
+from model_fixedpoint import GRU, Conv2D, MaxPool2D, reLU
 
 # ***************************************#
 
@@ -34,9 +33,16 @@ conv_width = 2
 GRUoutputs = 100
 GRUinputs = int((inputs-1)/2)*int((batch_size-1)/2)*conv_filters
 
-def deterministic_rounding(data, IntBits, FracBits):
-    data = 
-    
+s14 = NumpyFloatToFixConverter(signed=True, n_bits=8, n_frac=4)
+f4 = NumpyFixToFloatConverter(4)
+def Quantize(X):
+    m = 4.0
+    f = 4.0
+    Xclip = np.where(X > 2**m, 2**m*np.ones_like(X), X)
+    Xclip = np.where(Xclip < -2**m, -2**m*np.ones_like(Xclip), Xclip)
+    Xround = np.round(2**f*Xclip)*2**(-f)
+    return Xround
+
 def normalization(data, minn, maxx):
     data = data/maxx
     #data = abs(data)/maxx
@@ -56,49 +62,31 @@ def fill_array(line, array, state):
     else:
         return 0
 
-X, input_size, length = get_sizes_test(X, dataset_size, 1, patient)
-
+# to be transformed to simulate a real-time case:
+    # store the pre-read X_test file into a text file (not normalized and in full precision, otherwise it would be cheating!)
+    # write a function to read 1 sequence at a time from Xtest.txt (2D array --> 1 line = 1 sequence, after 23x100 numbers --> new timestep, after 100 numbers new electrode etc...)
+    # make the algorithm run/per 1 sequence and evaluate the delay !
+    
 X_test=np.zeros((seq_number*nb_files, timesteps, inputs, batch_size, 1), dtype=np.float16)
 
 
-for file_iter in range(startfile, nb_files+startfile):
-    print("Reading files ", startfile+1, " to ", nb_files + startfile, "\n")
-    m=file_iter
-    if (m == 3-1 or  m == 4-1 or m == 15-1 or m == 16-1 or m == 18-1 or m == 21-1 or m == 26-1):
-        if m == 3-1:
-            initial_time = 700000
-        if m == 4-1:
-            initial_time = 300000
-        if m == 15-1:
-            initial_time = 400000
-        if m == 16-1:
-            initial_time = 200000
-        if m == 18-1:
-            initial_time = 400000
-        if m == 21-1:
-            initial_time = 0
-        if m == 26-1:      
-            initial_time = 400000
-    else:
-        initial_time = 0
-    print('initial time:', initial_time)
-    for i in range(0,seq_number):
-        for j in range(0,timesteps):
-            initial = initial_time+(i*batch_size*timesteps)+j*batch_size
-            final = initial_time+(i*batch_size*timesteps)+((j+1)*batch_size)
-      
-            X_test[(m-startfile)*seq_number+i,j,:,0:batch_size,0] =  X[m,0,0,0:inputs,initial:final,0]
+
 print("Normalizing data ... ")
+file_test = open("../database/RT_datastream.txt", 'r')
+X_test = np.loadtxt(file_test, delimiter = ",")
+file_test.close()
 
 X_test = normalization(X_test, minn, maxx)
+X_test = Quantize(X_test)
+X_test = s14(X_test) #convert to numpy uint8 array :)
 print("maxx", maxx)
-
+X_test = X_test.reshape(seq_number*nb_files, timesteps, batch_size, electrodes, 1)
 #---------------------------------------------------------------------------------------------------------------------------#
 Wconv_flat, Bconv, Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin = [],[],[],[],[],[],[],[],[],[],[],[],[]
         
 #load from textfiles
 BoolWconv, BoolBconv,BoolWz, BoolWr, BoolWh, BoolUz, BoolUr, BoolUh, BoolBz, BoolBr, BoolBh, BoolWlin, BoolBlin = False, False, False, False, False, False, False, False, False, False, False, False, False
-with open("keras_param_3class_30e.txt") as file_Wall:
+with open("../results_low_prec/keras_param_3class_30e_5bits_onlysign.txt") as file_Wall:
     for line in file_Wall:
         skip = parse_state(line, "Wconv\n")
         if skip == 1:
@@ -192,20 +180,20 @@ with open("keras_param_3class_30e.txt") as file_Wall:
         if skip == 1:
             continue
 
-Wconv_flat = np.asarray(Wconv_flat, dtype = np.float64)
-Bconv = np.asarray(Bconv, dtype = np.float64)
-Wz = np.asarray(Wz, dtype = np.float64)
-Wr = np.asarray(Wr, dtype = np.float64)
-Wh = np.asarray(Wh, dtype = np.float64)
-Uz = np.asarray(Uz, dtype = np.float64)
-Ur = np.asarray(Ur, dtype = np.float64)
-Uh = np.asarray(Uh, dtype = np.float64)
-Bz = np.asarray(Bz, dtype = np.float64)
-Br = np.asarray(Br, dtype = np.float64)
-Bh = np.asarray(Bh, dtype = np.float64)
-Wlin = np.asarray(Wlin, dtype = np.float64)
-Blin = np.asarray(Blin, dtype = np.float64)
-Wconv = Wconv_flat.reshape(2,2,2)
+Wconv_flat = np.asarray(Wconv_flat, dtype = np.float16)
+Bconv = s14(np.asarray(Bconv, dtype = np.float16))
+Wz = s14(np.asarray(Wz, dtype = np.float16))
+Wr = s14(np.asarray(Wr, dtype = np.float16))
+Wh = s14(np.asarray(Wh, dtype = np.float16))
+Uz = s14(np.asarray(Uz, dtype = np.float16))
+Ur = s14(np.asarray(Ur, dtype = np.float16))
+Uh = s14(np.asarray(Uh, dtype = np.float16))
+Bz = s14(np.asarray(Bz, dtype = np.float16))
+Br = s14(np.asarray(Br, dtype = np.float16))
+Bh = s14(np.asarray(Bh, dtype = np.float16))
+Wlin = s14(np.asarray(Wlin, dtype = np.float16))
+Blin = s14(np.asarray(Blin, dtype = np.float16))
+Wconv = s14(Wconv_flat.reshape(2,2,2))
 
 
 #--------------------------------MODEL CREATION-----------------------------------#
@@ -223,16 +211,16 @@ layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz.reshape(1,100), Br.reshape(1,100), 
 
 print("Generating predictions ...")
 HConv = layer_0.forward(X_test) # 5D data for train_data, 3D for Wconv 2D for Bconv
-YConv = reLU(HConv, deriv=False) # no requirement on shape
+YConv = reLU(HConv) # no requirement on shape
 #pooling layer
 pool_kernel = np.array([2,2])
-YPool, XArgmax = layer_1.forward(YConv,  pool_kernel) #5D data for YConv
+YPool = layer_1.forward(YConv,  pool_kernel) #5D data for YConv
 #flattening
 X_GRU_flat = YPool.reshape(YPool.shape[0],10,-1) # check size here should be 3D (100*nb_files, 10, 1078)
 
 #GRU
-yhat_test = layer_2.forward(X_GRU_flat) # timesteps
-file2 = open("../results_3class_fullKeras/file_transfer_custom.txt", 'w')
+yhat_test = Quantize(layer_2.forward(X_GRU_flat)) # timesteps
+file2 = open("../results_low_prec/custom4fracbits.txt", 'w')
 np.savetxt(file2, yhat_test, delimiter="," )
 file2.close()
 
@@ -296,7 +284,7 @@ for k in range(YtestTrue.shape[0]):
         else:
             HealthyAsIctal +=1
 
-TestSF = open("../results_low_prec/30e_drp04_inputflp16.txt", 'a')
+TestSF = open("../results_low_prec/custom4fracbits.txt", 'a')
 TestSF.write(" Confusion Matrix\n")
 TestSF.write("             | Inter-Ictal | Pre-Ictal | Ictal\n")
 TestSF.write("----------------------------------------------\n")

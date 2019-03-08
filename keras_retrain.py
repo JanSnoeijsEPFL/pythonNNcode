@@ -45,8 +45,8 @@ def class_occurence(labels):
     return nb_healthy, nb_pre_ictal, nb_ictal
 
 def numpy_quantize(X):
-    m = 2.0
-    f = 2.0
+    m = 1.0
+    f = 4.0
     Xclip = np.where(X > 2**m, 2**m*np.ones_like(X), X)
     Xclip = np.where(Xclip < -2**m, -2**m*np.ones_like(Xclip), Xclip)
     Xround = np.round(2**f*Xclip)*2**(-f)
@@ -161,7 +161,7 @@ X_resampled = X_resampled.reshape(-1, timesteps, electrodes, batch_size,1)
 Wconv_flat, Bconv, Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin = [],[],[],[],[],[],[],[],[],[],[],[],[]
 
 BoolWconv, BoolBconv,BoolWz, BoolWr, BoolWh, BoolUz, BoolUr, BoolUh, BoolBz, BoolBr, BoolBh, BoolWlin, BoolBlin = False, False, False, False, False, False, False, False, False, False, False, False, False
-with open("../results_low_prec/keras_param_3class_30e_7bits.txt") as file_Wall:
+with open("../results_low_prec/keras_param_3class_30e.txt") as file_Wall:
     for line in file_Wall:
         skip = parse_state(line, "Wconv\n")
         if skip == 1:
@@ -429,7 +429,7 @@ TestSF.write("\n")
 TestSF.write(" \n")
 TestSF.close()
 
-file_Wall = open("../results_low_prec/keras_param_3class_30e_2ndretrain_4bits.txt", 'w')
+file_Wall = open("../results_low_prec/keras_param_3class_30e_5bits_onlysign.txt", 'w')
 file_Wall.write("Wconv\n")
 save_param(file_Wall, Wconv_flat)
 file_Wall.write("Bconv\n")

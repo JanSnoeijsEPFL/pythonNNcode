@@ -23,11 +23,18 @@ from keras.legacy.layers import AtrousConvolution1D
 from keras.legacy.layers import AtrousConvolution2D
 
 
+def hard_tanh(X):
+    y = tf.math.maximum(-tf.ones_like(X), tf.math.minimum(tf.ones_like(X), X))
+    return y
 
+def otp_act(X):
+    sums = K.sum(X, axis = 1)
+    y = X/sums
+    return y
 
 def Quantize(X):
-    m = 2.0
-    f = 2.0
+    m = 1.0
+    f = 4.0
     Xclip = K.stop_gradient(tf.where(X > 2**m, 2**m*tf.ones_like(X), X))
     Xclip = K.stop_gradient(tf.where(Xclip < -2**m, -2**m*tf.ones_like(Xclip), Xclip))
     Xround = K.stop_gradient(tf.round(2**f*Xclip)*2**(-f))
@@ -325,8 +332,8 @@ class QuantizedGRUCell(Layer):
                 recurrent_h = r * recurrent_h
             else:
                 recurrent_h = K.dot(r * Quantize(h_tm1_h), Quantize(self.recurrent_kernel_h))
-
-            hh = Quantize(self.activation(x_h + recurrent_h))
+            
+            hh = Quantize(hard_tanh(x_h + recurrent_h))
         else:
             if 0. < self.dropout < 1.:
                 inputs *= dp_mask[0]
@@ -365,7 +372,7 @@ class QuantizedGRUCell(Layer):
                 recurrent_h = K.dot(r * Quantize(h_tm1),
                                     Quantize(self.recurrent_kernel[:, 2 * self.units:]))
 
-            hh = Quantize(self.activation(x_h + recurrent_h))
+            hh = Quantize(hard_tanh(x_h + recurrent_h))
 
         # previous and candidate state mixed by update gate
         h = z * Quantize(h_tm1) + (1 - z) * hh

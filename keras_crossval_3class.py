@@ -11,7 +11,7 @@
 import numpy as np
 import keras
 from keras.models import Model, Sequential
-from keras.layers import Dense, Conv2D, MaxPooling2D, GRU, TimeDistributed, Flatten, Softmax, Dropout, MaxPooling1D, Add, Input
+from keras.layers import Dense, Conv2D, MaxPooling2D, GRU, TimeDistributed, Flatten, Softmax, Dropout, MaxPooling1D, Add, Input, GlobalAveragePooling1D
 from keras.activations import relu, softmax
 from keras.optimizers import Adam
 from keras.losses import categorical_crossentropy
@@ -169,9 +169,9 @@ for index, (train_indices, val_indices) in enumerate(skf.split(X_new, Y_1D)):
     model.add(TimeDistributed(MaxPooling2D(pool_size=(2, 2))))
     model.add(TimeDistributed(Flatten()))
 
-    model.add(GRU(100, recurrent_dropout = 0.3, dropout = 0.3))
+    model.add(GRU(100, recurrent_dropout = 0.3, dropout = 0.3, return_sequences = True))
     model.add(Dropout(0.0))
-  
+    model.add(GlobalAveragePooling1D())
     model.add(Dense(output, activation  = 'softmax'))
 
     adam = Adam(lr =0.001, beta_1 = 0.9, beta_2 = 0.999, epsilon = 10.0**-7, decay = 0.0, amsgrad = False)
@@ -179,7 +179,7 @@ for index, (train_indices, val_indices) in enumerate(skf.split(X_new, Y_1D)):
     print(model.summary())
 
 
-    model.fit(X_resampled, Y_resampled, epochs = 30, shuffle = True)
+    model.fit(X_resampled, Y_resampled, epochs = 60, shuffle = True)
     Y_cross_val = model.predict(xval)
     
     Y_stat = np.argmax(Y_cross_val, axis = 1)
@@ -267,8 +267,8 @@ WGRU = np.asarray(model.layers[3].get_weights()[0])
 UGRU = np.asarray(model.layers[3].get_weights()[1])
 BGRU = np.asarray(model.layers[3].get_weights()[2])
 
-Wlin_trained = np.asarray(model.layers[5].get_weights()[0])
-Blin_trained = np.asarray(model.layers[5].get_weights()[1])
+Wlin_trained = np.asarray(model.layers[6].get_weights()[0])
+Blin_trained = np.asarray(model.layers[6].get_weights()[1])
 
 
 Wz_trained, Wr_trained, Wh_trained = WGRU[:,0:100], WGRU[:,100:200], WGRU[:,200:300]
@@ -396,7 +396,7 @@ TestSF.write("\n")
 TestSF.write(" \n")
 TestSF.close()
 
-file_Wall = open("keras_param_3class_30e.txt", 'w')
+file_Wall = open("keras_param_3class_30e_stateful.txt", 'w')
 file_Wall.write("Wconv\n")
 save_param(file_Wall, Wconv_flat)
 file_Wall.write("Bconv\n")

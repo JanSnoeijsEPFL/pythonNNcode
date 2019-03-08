@@ -405,7 +405,6 @@ class fast_MaxPool2D():
 
 def hard_sigmoid(input, deriv = False): #requires input of forward prop for derivative.
     if deriv:
-        a = input.shape
         temp = 0.2*np.maximum(-2.5, np.minimum(2.5, input))
         temp[input > 2.5] = 0.0
         temp[input < -2.5] = 0.0
@@ -417,7 +416,15 @@ def tanh(input, deriv=False): #requires output of forward prop for derivative
         return 1 - input ** 2
     else:
         return np.tanh(input)
-
+    
+def hard_tanh(input, deriv=False):
+    if deriv:
+        a = input.shape
+        temp = np.ones_like(input)
+        temp[input > 1] = 0.0
+        temp[input < -1] = 0.0
+    else:
+        return np.maximum(-1, np.minimum(1, (input)))
 def softmax(input): # input is > 2D
 
     exps = np.exp(input - np.max(input))
