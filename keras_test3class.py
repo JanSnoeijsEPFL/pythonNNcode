@@ -172,14 +172,9 @@ Wlin = np.asarray(Wlin, dtype = np.float64)
 Blin = np.asarray(Blin, dtype = np.float64)
 
 Wconv = Wconv_flat.reshape(2,2,2)
-Bconv = Bconv.reshape(1,conv_filters)
-layer_0.set_param(Wconv, Bconv)
-layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin)
 
-Bz = Bz.reshape(1,-1)
-Br = Br.reshape(1,-1)
-Bh = Bh.reshape(1,-1)
-Blin = Blin.reshape(1,-1)
+layer_0.set_param(Wconv, Bconv)
+layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz.reshape(1,100), Br.reshape(1,100), Bh.reshape(1,100), Wlin, Blin.reshape(1,3))
 
 X, Y = list(), list()
 patient = 1
