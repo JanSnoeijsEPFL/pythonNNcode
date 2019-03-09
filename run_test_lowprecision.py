@@ -33,10 +33,8 @@ conv_width = 2
 GRUoutputs = 100
 GRUinputs = int((inputs-1)/2)*int((batch_size-1)/2)*conv_filters
 
-s14 = NumpyFloatToFixConverter(signed=True, n_bits=8, n_frac=4)
-f4 = NumpyFixToFloatConverter(4)
 def Quantize(X):
-    m = 4.0
+    m = 1.0
     f = 4.0
     Xclip = np.where(X > 2**m, 2**m*np.ones_like(X), X)
     Xclip = np.where(Xclip < -2**m, -2**m*np.ones_like(Xclip), Xclip)
@@ -78,7 +76,7 @@ file_test.close()
 
 X_test = normalization(X_test, minn, maxx)
 X_test = Quantize(X_test)
-X_test = s14(X_test) #convert to numpy uint8 array :)
+#convert to numpy uint8 array :)
 print("maxx", maxx)
 X_test = X_test.reshape(seq_number*nb_files, timesteps, batch_size, electrodes, 1)
 #---------------------------------------------------------------------------------------------------------------------------#
@@ -181,19 +179,19 @@ with open("../results_low_prec/keras_param_3class_30e_5bits_onlysign.txt") as fi
             continue
 
 Wconv_flat = np.asarray(Wconv_flat, dtype = np.float16)
-Bconv = s14(np.asarray(Bconv, dtype = np.float16))
-Wz = s14(np.asarray(Wz, dtype = np.float16))
-Wr = s14(np.asarray(Wr, dtype = np.float16))
-Wh = s14(np.asarray(Wh, dtype = np.float16))
-Uz = s14(np.asarray(Uz, dtype = np.float16))
-Ur = s14(np.asarray(Ur, dtype = np.float16))
-Uh = s14(np.asarray(Uh, dtype = np.float16))
-Bz = s14(np.asarray(Bz, dtype = np.float16))
-Br = s14(np.asarray(Br, dtype = np.float16))
-Bh = s14(np.asarray(Bh, dtype = np.float16))
-Wlin = s14(np.asarray(Wlin, dtype = np.float16))
-Blin = s14(np.asarray(Blin, dtype = np.float16))
-Wconv = s14(Wconv_flat.reshape(2,2,2))
+Bconv = np.asarray(Bconv, dtype = np.float16)
+Wz = np.asarray(Wz, dtype = np.float16)
+Wr = np.asarray(Wr, dtype = np.float16)
+Wh = np.asarray(Wh, dtype = np.float16)
+Uz = np.asarray(Uz, dtype = np.float16)
+Ur = np.asarray(Ur, dtype = np.float16)
+Uh = np.asarray(Uh, dtype = np.float16)
+Bz = np.asarray(Bz, dtype = np.float16)
+Br = np.asarray(Br, dtype = np.float16)
+Bh = np.asarray(Bh, dtype = np.float16)
+Wlin = np.asarray(Wlin, dtype = np.float16)
+Blin = np.asarray(Blin, dtype = np.float16)
+Wconv = Wconv_flat.reshape(2,2,2)
 
 
 #--------------------------------MODEL CREATION-----------------------------------#
@@ -211,6 +209,9 @@ layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz.reshape(1,100), Br.reshape(1,100), 
 
 print("Generating predictions ...")
 HConv = layer_0.forward(X_test) # 5D data for train_data, 3D for Wconv 2D for Bconv
+store_conv = open("../results_low_prec/fpconvfloat.txt", 'w')
+np.savetxt(store_conv, HConv[0,:,:,:,:].reshape(-1))
+store_conv.close()
 YConv = reLU(HConv) # no requirement on shape
 #pooling layer
 pool_kernel = np.array([2,2])

@@ -96,7 +96,7 @@ Wconv_flat, Bconv, Wz, Wr, Wh, Uz, Ur, Uh, Bz, Br, Bh, Wlin, Blin = [],[],[],[],
         
 #load from textfiles
 BoolWconv, BoolBconv,BoolWz, BoolWr, BoolWh, BoolUz, BoolUr, BoolUh, BoolBz, BoolBr, BoolBh, BoolWlin, BoolBlin = False, False, False, False, False, False, False, False, False, False, False, False, False
-with open("keras_param_3class_30e.txt") as file_Wall:
+with open("../results_low_prec/keras_param_3class_30e_5bits_onlysign.txt") as file_Wall:
     for line in file_Wall:
         skip = parse_state(line, "Wconv\n")
         if skip == 1:
@@ -221,6 +221,9 @@ layer_2.set_param(Wz, Wr, Wh, Uz, Ur, Uh, Bz.reshape(1,100), Br.reshape(1,100), 
 
 print("Generating predictions ...")
 HConv = layer_0.forward(X_test) # 5D data for train_data, 3D for Wconv 2D for Bconv
+store_conv = open("../results_low_prec/convtrue.txt", 'w')
+np.savetxt(store_conv, HConv[0,:,:,:,:].reshape(-1))
+store_conv.close()
 YConv = reLU(HConv, deriv=False) # no requirement on shape
 #pooling layer
 pool_kernel = np.array([2,2])
